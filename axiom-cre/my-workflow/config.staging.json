@@ -1,0 +1,10 @@
+{
+  "schedule": "*/30 * * * * *",
+  "btcApiUrl": "https://blockstream.info/api/address/bc1q4eqfdr0sy0e2hr94atay8xn0pp00899xplu3x2/utxo",
+  "evms": [
+    {
+      "registryAddress": "0xa17CF997C28FF154eDBae1422e6a50BeF23927F4",
+      "chainName": "ethereum-testnet-sepolia"
+    }
+  ]
+}
