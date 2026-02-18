@@ -3,10 +3,12 @@ import { parseDeterministic } from "../agents/deterministic-parser";
 import { evaluateEvidence } from "../agents/evidence-evaluator";
 import { gatherEvidence } from "../agents/evidence-gatherer";
 import { planEvidence } from "../agents/evidence-planner";
+import { resolveDeterministic } from "../resolver/resolver_class_a";
 import {
   MarketInput,
   ResolutionResult,
   SettlementAction,
+  StrategyType,
 } from "../types";
 
 /**
@@ -47,24 +49,46 @@ async function resolveCategoryA(market: MarketInput): Promise<ResolutionResult> 
   // Successfully parsed — return spec for downstream resolver
   const det = parsed as import("../types").DeterministicParseResult;
 
-  return {
-    marketId: market.marketId,
-    category: "CATEGORY_A",
-    outcome: "UNDETERMINED", // Actual resolution requires hitting data endpoints
-    confidence: 1.0, // Confidence in the SPEC, not the outcome
-    settlement_action: "DEFER", // Deferred until data endpoint is queried
-    reasoning: `Market parsed as ${det.strategy_type}. Ready for automated resolution via data endpoint.`,
-    evidence_trail: {
-      sources_consulted: 0,
-      sources: [],
-      evaluation_summary: `Deterministic spec extracted. Strategy: ${det.strategy_type}.`,
-    },
-    deterministic_spec: {
-      strategy_type: det.strategy_type,
-      ...det.parsed_spec,
-    },
-    resolved_at: new Date().toISOString(),
-  };
+    // Resolve against live data
+    const resolution = await resolveDeterministic(
+      market,
+      det.strategy_type as StrategyType,
+      det.parsed_spec
+    );
+
+    const confidence = resolution.confidence;
+    const action = determineSettlement(confidence);
+
+    return {
+      marketId: market.marketId,
+      category: "CATEGORY_A",
+      outcome: resolution.outcome,
+      confidence,
+      settlement_action: action,
+      reasoning: resolution.reasoning,
+      evidence_trail: {
+        sources_consulted: 1,
+        sources: [
+          {
+            title: `${det.strategy_type} data from ${resolution.data_fetched.source}`,
+            url: resolution.data_fetched.source,
+            snippet: JSON.stringify(resolution.data_fetched.data).slice(0, 300),
+            source_type: "official",
+            published_date: resolution.data_fetched.fetched_at,
+          },
+        ],
+        evaluation_summary:
+          `Strategy: ${det.strategy_type}. ` +
+          `Data source: ${resolution.data_fetched.source}. ` +
+          `Fetch success: ${resolution.data_fetched.success}. ` +
+          (resolution.agent_evaluation.data_summary?.comparison_result || ""),
+      },
+      deterministic_spec: {
+        strategy_type: det.strategy_type,
+        ...det.parsed_spec,
+      },
+      resolved_at: new Date().toISOString(),
+    };
 }
 
 /**
