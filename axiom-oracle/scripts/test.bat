@@ -33,7 +33,7 @@ echo.
 echo ====================================================
 echo [TEST] Category A: BTC Price (TWAP)
 echo ====================================================
-curl -s -X POST "%BASE_URL%/api/resolve" -H "Content-Type: application/json" -d "{\"market\": {\"marketId\": \"MKT-001\", \"question\": \"Will BTC close above $100,000 on March 1, 2026 at 00:00 UTC?\", \"resolution_criteria\": \"Use 1-hour TWAP BTC/USD across Binance, Coinbase, Kraken.\", \"deadline\": \"2026-03-01T00:00:00Z\", \"metadata\": {}}}"
+curl -s -X POST "%BASE_URL%/api/resolve" -H "Content-Type: application/json" -d "{\"market\": {\"marketId\": \"MKT-001\", \"question\": \"Will BTC be above $90,000 on February 18, 2026 at 00:00 UTC?\", \"resolution_criteria\": \"Use spot price BTC/USD from Binance at the specified time. Price must be strictly above $90,000.\", \"deadline\": \"2026-02-18T00:00:00Z\", \"metadata\": {}}}"
 echo.
 
 REM -- Category A: Sports Result -----------------------
@@ -49,7 +49,7 @@ echo.
 echo ====================================================
 echo [TEST] Category B: Fed Rate Cut
 echo ====================================================
-curl -s -X POST "%BASE_URL%/api/resolve" -H "Content-Type: application/json" -d "{\"market\": {\"marketId\": \"MKT-004\", \"question\": \"Will the Federal Reserve cut interest rates at the March 2026 FOMC meeting?\", \"resolution_criteria\": \"Based on the official FOMC statement released after the March 2026 meeting. A cut of any size counts as YES.\", \"deadline\": \"2026-03-20T00:00:00Z\", \"metadata\": {}}}"
+curl -s -X POST "%BASE_URL%/api/resolve" -H "Content-Type: application/json" -d "{\"market\": {\"marketId\": \"MKT-004\", \"question\": \"Did the Federal Reserve cut interest rates at the January 2025 FOMC meeting?\", \"resolution_criteria\": \"Based on the official FOMC statement released after the January 28-29, 2025 meeting. A cut of any size counts as YES. No change or an increase counts as NO.\", \"deadline\": \"2025-01-30T00:00:00Z\", \"metadata\": {}}}"
 echo.
 
 REM -- Category B: CEO Resignation ---------------------
