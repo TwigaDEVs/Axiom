@@ -16681,70 +16681,76 @@ var zeroAddress = "0x0000000000000000000000000000000000000000";
 init_decodeFunctionResult();
 init_encodeAbiParameters();
 init_encodeFunctionData();
-var Registry = [
+var PredictionMarketABI = [
   {
-    inputs: [],
-    name: "get",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "marketExists",
+    type: "function",
     stateMutability: "view",
-    type: "function"
+    inputs: [{ name: "", type: "string" }],
+    outputs: [{ name: "", type: "bool" }]
   }
 ];
-var fetchBtcData = (nodeRuntime) => {
-  const httpClient = new ClientCapability2;
-  const req = {
-    url: nodeRuntime.config.btcApiUrl,
-    method: "GET"
-  };
-  const resp = httpClient.sendRequest(nodeRuntime, req).result();
-  const utxos = JSON.parse(new TextDecoder().decode(resp.body));
-  return BigInt(utxos.length);
+var initWorkflow = (config) => {
+  const cron = new CronCapability;
+  return [handler(cron.trigger({ schedule: config.schedule }), onCronTrigger)];
 };
 var onCronTrigger = (runtime2) => {
-  const utxoCount = runtime2.runInNodeMode(fetchBtcData, consensusMedianAggregation())().result();
-  runtime2.log(`BTC UTXO Count: ${utxoCount}`);
   const evmConfig = runtime2.config.evms[0];
   const network248 = getNetwork({
     chainFamily: "evm",
     chainSelectorName: evmConfig.chainName,
     isTestnet: true
   });
+  if (!network248)
+    throw new Error(`Unknown chain name: ${evmConfig.chainName}`);
+  const outcome = Number(runtime2.runInNodeMode(fetchMarketOutcome, consensusMedianAggregation())().result());
+  const marketId = "market-1";
+  runtime2.log(`Successfully fetched outcome for ${marketId}: ${outcome}`);
   const evmClient = new ClientCapability(network248.chainSelector.selector);
-  const callData = encodeFunctionData({ abi: Registry, functionName: "get" });
+  const callData = encodeFunctionData({
+    abi: PredictionMarketABI,
+    functionName: "marketExists",
+    args: [marketId]
+  });
   const contractCall = evmClient.callContract(runtime2, {
     call: encodeCallMsg({
       from: zeroAddress,
-      to: evmConfig.registryAddress,
+      to: evmConfig.calculatorConsumerAddress,
       data: callData
     }),
     blockNumber: LAST_FINALIZED_BLOCK_NUMBER
   }).result();
-  const currentOnchainValue = decodeFunctionResult({
-    abi: Registry,
-    functionName: "get",
+  const exists = decodeFunctionResult({
+    abi: PredictionMarketABI,
+    functionName: "marketExists",
     data: bytesToHex(contractCall.data)
   });
-  runtime2.log(`Successfully read onchain value: ${currentOnchainValue}`);
-  const encodedData = encodeAbiParameters(parseAbiParameters("uint256 offchainValue, int256 onchainValue, uint256 finalResult"), [utxoCount, 0n, utxoCount]);
-  const report2 = runtime2.report({
-    encodedPayload: hexToBase64(encodedData),
+  runtime2.log(`Market ${marketId} exists on-chain: ${exists}`);
+  const txHash = updateMarketResult(runtime2, network248.chainSelector.selector, evmConfig, marketId, outcome);
+  const finalWorkflowResult = { marketId, outcome, txHash };
+  return finalWorkflowResult;
+};
+var fetchMarketOutcome = (nodeRuntime) => {
+  return 1n;
+};
+function updateMarketResult(runtime2, chainSelector, evmConfig, marketId, outcome) {
+  const evmClient = new ClientCapability(chainSelector);
+  const reportData = encodeAbiParameters(parseAbiParameters("string marketId, uint8 outcome"), [marketId, outcome]);
+  const reportResponse = runtime2.report({
+    encodedPayload: hexToBase64(reportData),
     encoderName: "evm",
     signingAlgo: "ecdsa",
     hashingAlgo: "keccak256"
   }).result();
-  runtime2.log("Report generated and signed by the DON!");
-  const writeResult = evmClient.writeReport(runtime2, {
-    receiver: "0x95e10BaC2B89aB4D8508ccEC3f08494FcB3D23cb",
-    report: report2
+  const writeReportResult = evmClient.writeReport(runtime2, {
+    receiver: evmConfig.calculatorConsumerAddress,
+    report: reportResponse,
+    gasConfig: { gasLimit: evmConfig.gasLimit }
   }).result();
-  const txHash = bytesToHex(writeResult.txHash);
-  runtime2.log(`Success! Transaction submitted: ${txHash}`);
-  return { utxoCount, txHash };
-};
-var initWorkflow = (config) => {
-  const cron = new CronCapability;
-  return [handler(cron.trigger({ schedule: config.schedule }), onCronTrigger)];
-};
+  const txHash = bytesToHex(writeReportResult.txHash || new Uint8Array(32));
+  runtime2.log(`Transaction: ${txHash}`);
+  return txHash;
+}
 async function main() {
   const runner = await Runner.newRunner();
   await runner.run(initWorkflow);

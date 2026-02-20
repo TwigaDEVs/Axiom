@@ -3,8 +3,10 @@
   "btcApiUrl": "https://blockstream.info/api/address/bc1q4eqfdr0sy0e2hr94atay8xn0pp00899xplu3x2/utxo",
   "evms": [
     {
-      "registryAddress": "0xa17CF997C28FF154eDBae1422e6a50BeF23927F4",
-      "chainName": "ethereum-testnet-sepolia"
+      "chainName": "ethereum-testnet-sepolia",
+      "storageAddress": "0xF8344CFd5c43616a4366C34E3EEE75af79a74482",
+      "calculatorConsumerAddress": "0x0ACfa17B2D5c80b819C35E1d91c68a96F2f97638",
+      "gasLimit": "500000"
     }
   ]
 }

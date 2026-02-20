@@ -1,119 +1,166 @@
 import {
   CronCapability,
   HTTPClient,
-  EVMClient, // New capability
+  EVMClient,
   handler,
   consensusMedianAggregation,
   Runner,
-  getNetwork, // Helper for chain selectors
-  encodeCallMsg,
-  bytesToHex,
-  LAST_FINALIZED_BLOCK_NUMBER,
   type NodeRuntime,
   type Runtime,
+  getNetwork,
+  LAST_FINALIZED_BLOCK_NUMBER,
+  encodeCallMsg,
+  bytesToHex,
   hexToBase64,
 } from "@chainlink/cre-sdk";
 import {
+  encodeAbiParameters,
+  parseAbiParameters,
   encodeFunctionData,
   decodeFunctionResult,
   zeroAddress,
-  encodeAbiParameters,
-  parseAbiParameters,
 } from "viem";
-import { Registry } from "../contracts/abi/Registry"; // Import your ABI
 
-type EvmConfig = { registryAddress: string; chainName: string };
-type Config = { schedule: string; btcApiUrl: string; evms: EvmConfig[] };
+// 1. Updated ABI to match YOUR PredictionMarket.sol
+const PredictionMarketABI = [
+  {
+    name: "marketExists",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "string" }],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
 
-const fetchBtcData = (nodeRuntime: NodeRuntime<Config>): bigint => {
-  const httpClient = new HTTPClient();
-
-  const req = {
-    url: nodeRuntime.config.btcApiUrl,
-    method: "GET" as const,
-  };
-
-  // Fetching raw UTXO data from the Bitcoin indexer
-  const resp = httpClient.sendRequest(nodeRuntime, req).result();
-
-  // For Part 2, let's just count how many UTXOs (unspent outputs) you have
-  const utxos = JSON.parse(new TextDecoder().decode(resp.body));
-  return BigInt(utxos.length);
+type EvmConfig = {
+  chainName: string;
+  storageAddress: string;
+  calculatorConsumerAddress: string;
+  gasLimit: string;
 };
 
-const onCronTrigger = (runtime: Runtime<Config>) => {
-  // 1. Fetch Bitcoin Data (Offchain)
-  const utxoCount = runtime
-    .runInNodeMode(fetchBtcData, consensusMedianAggregation())()
-    .result();
-  runtime.log(`BTC UTXO Count: ${utxoCount}`);
+type Config = {
+  schedule: string;
+  apiUrl: string;
+  evms: EvmConfig[];
+};
 
-  // 2. Setup EVM Client (Onchain)
-  const evmConfig = runtime.config.evms[0];
-  const network = getNetwork({
-    chainFamily: "evm",
-    chainSelectorName: evmConfig.chainName,
-    isTestnet: true,
-  });
-
-  const evmClient = new EVMClient(network.chainSelector.selector);
-
-  // 3. Read from Smart Contract
-  const callData = encodeFunctionData({ abi: Registry, functionName: "get" });
-  const contractCall = evmClient
-    .callContract(runtime, {
-      call: encodeCallMsg({
-        from: zeroAddress,
-        to: evmConfig.registryAddress as `0x${string}`,
-        data: callData,
-      }),
-      blockNumber: LAST_FINALIZED_BLOCK_NUMBER,
-    })
-    .result();
-
-  const currentOnchainValue = decodeFunctionResult({
-    abi: Registry,
-    functionName: "get",
-    data: bytesToHex(contractCall.data),
-  }) as bigint;
-
-  runtime.log(`Successfully read onchain value: ${currentOnchainValue}`);
-
-  const encodedData = encodeAbiParameters(
-    parseAbiParameters(
-      "uint256 offchainValue, int256 onchainValue, uint256 finalResult",
-    ),
-    [utxoCount, 0n, utxoCount], // We'll just pass your BTC count as the offchain value
-  );
-
-  const report = runtime
-    .report({
-      encodedPayload: hexToBase64(encodedData),
-      encoderName: "evm",
-      signingAlgo: "ecdsa",
-      hashingAlgo: "keccak256",
-    })
-    .result();
-
-  runtime.log("Report generated and signed by the DON!");
-
-  const writeResult = evmClient
-    .writeReport(runtime, {
-      receiver: "0x95e10BaC2B89aB4D8508ccEC3f08494FcB3D23cb", // Tutorial Consumer Address
-      report: report,
-    })
-    .result();
-
-  const txHash = bytesToHex(writeResult.txHash);
-  runtime.log(`Success! Transaction submitted: ${txHash}`);
-
-  return { utxoCount, txHash };
+// 2. Result type for a Prediction Market
+type MyResult = {
+  marketId: string;
+  outcome: number;
+  txHash: string;
 };
 
 const initWorkflow = (config: Config) => {
   const cron = new CronCapability();
   return [handler(cron.trigger({ schedule: config.schedule }), onCronTrigger)];
 };
+
+const onCronTrigger = (runtime: Runtime<Config>): MyResult => {
+  const evmConfig = runtime.config.evms[0];
+
+  const network = getNetwork({
+    chainFamily: "evm",
+    chainSelectorName: evmConfig.chainName,
+    isTestnet: true,
+  });
+
+  if (!network) throw new Error(`Unknown chain name: ${evmConfig.chainName}`);
+
+  // Step 1: Fetch offchain data (In this case, an outcome from an API)
+  // We'll simulate fetching '1' (Yes) or '2' (No)
+  const outcome = Number(
+    runtime
+      .runInNodeMode(fetchMarketOutcome, consensusMedianAggregation())()
+      .result(),
+  );
+  const marketId = "market-1"; // Usually you'd get this from the API too
+
+  runtime.log(`Successfully fetched outcome for ${marketId}: ${outcome}`);
+
+  // Step 2: Check if market exists on-chain (Read)
+  const evmClient = new EVMClient(network.chainSelector.selector);
+  const callData = encodeFunctionData({
+    abi: PredictionMarketABI,
+    functionName: "marketExists",
+    args: [marketId],
+  });
+
+  const contractCall = evmClient
+    .callContract(runtime, {
+      call: encodeCallMsg({
+        from: zeroAddress,
+        to: evmConfig.calculatorConsumerAddress as `0x${string}`,
+        data: callData,
+      }),
+      blockNumber: LAST_FINALIZED_BLOCK_NUMBER,
+    })
+    .result();
+
+  const exists = decodeFunctionResult({
+    abi: PredictionMarketABI,
+    functionName: "marketExists",
+    data: bytesToHex(contractCall.data),
+  });
+
+  runtime.log(`Market ${marketId} exists on-chain: ${exists}`);
+
+  // Step 3: Write the result to your contract
+  const txHash = updateMarketResult(
+    runtime,
+    network.chainSelector.selector,
+    evmConfig,
+    marketId,
+    outcome,
+  );
+
+  const finalWorkflowResult: MyResult = { marketId, outcome, txHash };
+  return finalWorkflowResult;
+};
+
+const fetchMarketOutcome = (nodeRuntime: NodeRuntime<Config>): bigint => {
+  // Simulating an API call that returns "1"
+  return 1n;
+};
+
+// This matches your template's helper function structure
+function updateMarketResult(
+  runtime: Runtime<Config>,
+  chainSelector: bigint,
+  evmConfig: EvmConfig,
+  marketId: string,
+  outcome: number,
+): string {
+  const evmClient = new EVMClient(chainSelector);
+
+  // CRITICAL: This must match your Solidity: (string, uint8)
+  const reportData = encodeAbiParameters(
+    parseAbiParameters("string marketId, uint8 outcome"),
+    [marketId, outcome],
+  );
+
+  const reportResponse = runtime
+    .report({
+      encodedPayload: hexToBase64(reportData),
+      encoderName: "evm",
+      signingAlgo: "ecdsa",
+      hashingAlgo: "keccak256",
+    })
+    .result();
+
+  const writeReportResult = evmClient
+    .writeReport(runtime, {
+      receiver: evmConfig.calculatorConsumerAddress,
+      report: reportResponse,
+      gasConfig: { gasLimit: evmConfig.gasLimit },
+    })
+    .result();
+
+  const txHash = bytesToHex(writeReportResult.txHash || new Uint8Array(32));
+  runtime.log(`Transaction: ${txHash}`);
+  return txHash;
+}
 
 export async function main() {
   const runner = await Runner.newRunner<Config>();
