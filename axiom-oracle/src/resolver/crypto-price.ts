@@ -16,11 +16,22 @@ function toBinanceSymbol(pair: string): string {
 }
 
 export class CryptoPriceFetcher implements DataFetcher {
-  /**
-   * Fetch spot price for a crypto pair.
-   */
-  async fetchSpot(symbol: string): Promise<FetchResult> {
+    /**
+     * Fetch spot price for a crypto pair.
+     */
+  async fetchSpot(symbol: string, resolutionTime?: string): Promise<FetchResult> {
     try {
+      // If resolution time is in the past, fetch historical candle
+      if (resolutionTime) {
+        const deadline = new Date(resolutionTime).getTime();
+        const now = Date.now();
+
+        if (deadline < now) {
+          return this.fetchHistorical(symbol, deadline);
+        }
+      }
+
+      // Otherwise fetch current spot
       const url = `${BINANCE_BASE}/ticker/price?symbol=${symbol}`;
       const resp = await fetch(url);
 
@@ -54,6 +65,67 @@ export class CryptoPriceFetcher implements DataFetcher {
         source: "binance_spot",
         fetched_at: new Date().toISOString(),
         error: `Fetch failed: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Fetch historical price at a specific timestamp using klines.
+   * Gets the 1-minute candle at the exact deadline time.
+   */
+  async fetchHistorical(symbol: string, timestampMs: number): Promise<FetchResult> {
+    try {
+      const url = `${BINANCE_BASE}/klines?symbol=${symbol}&interval=1m&startTime=${timestampMs}&limit=1`;
+      const resp = await fetch(url);
+
+      if (!resp.ok) {
+        return {
+          success: false,
+          data: {},
+          source: "binance_historical",
+          fetched_at: new Date().toISOString(),
+          error: `Binance API error: ${resp.status} ${resp.statusText}`,
+        };
+      }
+
+      const klines = (await resp.json()) as any[];
+
+      if (!klines.length) {
+        return {
+          success: false,
+          data: {},
+          source: "binance_historical",
+          fetched_at: new Date().toISOString(),
+          error: "No historical kline data for this timestamp",
+        };
+      }
+
+      // kline format: [openTime, open, high, low, close, volume, closeTime, ...]
+      const candle = klines[0];
+      const openPrice = parseFloat(candle[1]);
+      const closePrice = parseFloat(candle[4]);
+
+      return {
+        success: true,
+        data: {
+          symbol,
+          price: closePrice,
+          open_price: openPrice,
+          raw_price: candle[4],
+          method: "HISTORICAL",
+          candle_open_time: new Date(candle[0]).toISOString(),
+          candle_close_time: new Date(candle[6]).toISOString(),
+        },
+        source: "binance_historical",
+        fetched_at: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {},
+        source: "binance_historical",
+        fetched_at: new Date().toISOString(),
+        error: `Historical fetch failed: ${error}`,
       };
     }
   }
@@ -129,19 +201,22 @@ export class CryptoPriceFetcher implements DataFetcher {
     }
   }
 
-  /**
-   * Main fetch — routes to spot or TWAP based on spec.
-   */
-  async fetch(spec: Record<string, unknown>): Promise<FetchResult> {
-    const pair = (spec.pair as string) || "BTC/USD";
-    const symbol = toBinanceSymbol(pair);
-    const method = (spec.aggregation_method as string) || "SPOT";
+/**
+ * Main fetch — routes to spot or TWAP, with historical awareness.
+ */
+async fetch(spec: Record<string, unknown>): Promise<FetchResult> {
+  const pair = (spec.pair as string) || "BTC/USD";
+  const symbol = toBinanceSymbol(pair);
+  const method = (spec.aggregation_method as string) || "SPOT";
+  const resolutionTime = spec.resolution_time as string | undefined;
 
-    if (method === "TWAP") {
-      const window = (spec.window as string) || "1h";
-      return this.fetchTWAP(symbol, window);
-    }
-
-    return this.fetchSpot(symbol);
+  if (method === "TWAP") {
+    const window = (spec.window as string) || "1h";
+    return this.fetchTWAP(symbol, window);
   }
+
+  return this.fetchSpot(symbol, resolutionTime);
 }
+}
+
+

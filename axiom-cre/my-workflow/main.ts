@@ -21,6 +21,8 @@ import {
   zeroAddress,
 } from "viem";
 
+import {ResolutionResult} from "./types/index"
+
 // 1. Updated ABI to match YOUR PredictionMarket.sol
 const PredictionMarketABI = [
   {
@@ -120,8 +122,57 @@ const onCronTrigger = (runtime: Runtime<Config>): MyResult => {
 };
 
 const fetchMarketOutcome = (nodeRuntime: NodeRuntime<Config>): bigint => {
-  // Simulating an API call that returns "1"
-  return 1n;
+  console.log("Calling Oracle Engine...");
+
+  const httpClient = new HTTPClient();
+
+//   const bodyStr = JSON.stringify({
+//   market: {
+//     marketId: "MKT-001",
+//     question: "Will BTC be above $90,000 on February 18, 2026 at 00:00 UTC?",
+//     resolution_criteria:
+//       "Use spot price BTC/USD from Binance at the specified time. Price must be strictly above $90,000.",
+//     deadline: "2026-02-18T00:00:00Z",
+//     metadata: {},
+//   },
+// });
+
+    const bodyStr = JSON.stringify({
+  market: {
+    marketId: "MKT-002",
+    question: "Will the Lakers beat the Clippers on February 20, 2026?",
+    resolution_criteria: "Official NBA final score. Lakers must win.",
+    deadline: "2026-02-21T00:00:00Z",
+    metadata: {},
+  },
+});
+
+  const body = Buffer.from(new TextEncoder().encode(bodyStr)).toString("base64");
+
+  const req = {
+    url: "http://localhost:3000/api/resolve",
+    method: "POST" as const,
+    headers: { "Content-Type": "application/json" },
+    body,
+  };
+
+  const resp = httpClient.sendRequest(nodeRuntime, req).result();
+  const bodyText = new TextDecoder().decode(resp.body);
+  const parsed = JSON.parse(bodyText);
+  const result = parsed.result;
+
+  console.log("Oracle result:", bodyText);
+
+  if (result.settlement_action !== "SETTLE") {
+    throw new Error(
+      `Cannot settle: ${result.settlement_action} (confidence: ${result.confidence}) - ${result.reasoning}`
+    );
+  }
+
+  if (result.outcome === "YES") return 1n;
+  if (result.outcome === "NO") return 0n;
+
+  throw new Error(`Unexpected outcome: ${result.outcome}`);
 };
 
 // This matches your template's helper function structure
