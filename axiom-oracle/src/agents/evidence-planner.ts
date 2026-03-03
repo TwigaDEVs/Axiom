@@ -1,7 +1,7 @@
 
 import { EVIDENCE_PLANNER_PROMPT } from "./prompts/evidence-planner";
 import { MarketInput } from "../types";
-import { callAgent } from "../../anthropic";
+import { callAgent } from "../anthropic";
 
 export interface EvidencePlan {
   marketId: string;

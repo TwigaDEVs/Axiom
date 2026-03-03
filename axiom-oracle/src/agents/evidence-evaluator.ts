@@ -1,7 +1,7 @@
 
 import { EVIDENCE_EVALUATOR_PROMPT } from "./prompts/evidence-evaluator";
 import { MarketInput, EvidenceCorpus, EvidenceEvaluation } from "../types";
-import { callAgent } from "../../anthropic";
+import { callAgent } from "../anthropic";
 
 export async function evaluateEvidence(
   market: MarketInput,

@@ -1,7 +1,7 @@
 
 import { DETERMINISTIC_PARSER_PROMPT } from "./prompts/deterministic-parser";
 import { MarketInput, ParserResult } from "../types";
-import { callAgent } from "../../anthropic";
+import { callAgent } from "../anthropic";
 
 export async function parseDeterministic(
   market: MarketInput

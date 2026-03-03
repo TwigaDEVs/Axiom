@@ -1,6 +1,6 @@
 import { RESOLUTION_AGENT_PROMPT } from "./prompts/resolution-agent";
 import { MarketInput } from "../types";
-import { callAgent } from "../../anthropic";
+import { callAgent } from "../anthropic";
 
 export interface ResolutionAgentInput {
   market: MarketInput;
