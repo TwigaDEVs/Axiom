@@ -1,46 +1,31 @@
 [
   {
-    "inputs": [{ "internalType": "address", "name": "_forwarder", "type": "address" }],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "anonymous": false,
     "inputs": [
-      { "indexed": true, "internalType": "string", "name": "marketId", "type": "string" },
-      { "indexed": false, "internalType": "string", "name": "question", "type": "string" }
-    ],
-    "name": "MarketCreated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true, "internalType": "string", "name": "marketId", "type": "string" },
-      { "indexed": false, "internalType": "string", "name": "question", "type": "string" }
-    ],
-    "name": "SettlementRequested",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true, "internalType": "string", "name": "marketId", "type": "string" },
-      { "indexed": false, "internalType": "enum PredictionMarket.Outcome", "name": "outcome", "type": "uint8" },
-      { "indexed": false, "internalType": "enum PredictionMarket.SettlementAction", "name": "action", "type": "uint8" },
-      { "indexed": false, "internalType": "enum PredictionMarket.MarketCategory", "name": "category", "type": "uint8" },
-      { "indexed": false, "internalType": "uint16", "name": "confidence", "type": "uint16" }
-    ],
-    "name": "SettlementResponse",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      { "internalType": "string", "name": "_marketId", "type": "string" },
-      { "internalType": "string", "name": "_question", "type": "string" },
-      { "internalType": "string", "name": "_criteria", "type": "string" },
-      { "internalType": "uint256", "name": "_deadline", "type": "uint256" },
-      { "internalType": "string", "name": "_metadataUri", "type": "string" }
+      {
+        "internalType": "string",
+        "name": "_marketId",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_question",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_criteria",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_deadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_metadataUri",
+        "type": "string"
+      }
     ],
     "name": "createMarket",
     "outputs": [],
@@ -48,28 +33,285 @@
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "string", "name": "_marketId", "type": "string" }],
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_forwarder",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "NotForwarder",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "marketId",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "question",
+        "type": "string"
+      }
+    ],
+    "name": "MarketCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "marketId",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum Outcome",
+        "name": "result",
+        "type": "uint8"
+      }
+    ],
+    "name": "MarketResolved",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "report",
+        "type": "bytes"
+      }
+    ],
+    "name": "onReport",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "allMarketIds",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "FORWARDER",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllMarketIds",
+    "outputs": [
+      {
+        "internalType": "string[]",
+        "name": "",
+        "type": "string[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllMarkets",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "string",
+            "name": "question",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "resolutionCriteria",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "metadataURI",
+            "type": "string"
+          },
+          {
+            "internalType": "bool",
+            "name": "resolved",
+            "type": "bool"
+          },
+          {
+            "internalType": "enum Outcome",
+            "name": "result",
+            "type": "uint8"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint8",
+                "name": "category",
+                "type": "uint8"
+              },
+              {
+                "internalType": "uint8",
+                "name": "action",
+                "type": "uint8"
+              },
+              {
+                "internalType": "uint256",
+                "name": "sourcesConsulted",
+                "type": "uint256"
+              },
+              {
+                "internalType": "string",
+                "name": "resolvedAt",
+                "type": "string"
+              },
+              {
+                "internalType": "uint256",
+                "name": "confidence",
+                "type": "uint256"
+              },
+              {
+                "internalType": "string",
+                "name": "reasoning",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "evaluationSummary",
+                "type": "string"
+              }
+            ],
+            "internalType": "struct Resolution",
+            "name": "resolution",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct PredictionMarket.Market[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_marketId",
+        "type": "string"
+      }
+    ],
     "name": "getMarket",
     "outputs": [
       {
         "components": [
-          { "internalType": "string", "name": "question", "type": "string" },
-          { "internalType": "string", "name": "resolutionCriteria", "type": "string" },
-          { "internalType": "uint256", "name": "deadline", "type": "uint256" },
-          { "internalType": "string", "name": "metadataURI", "type": "string" },
-          { "internalType": "bool", "name": "resolved", "type": "bool" },
-          { "internalType": "uint8", "name": "result", "type": "uint8" },
+          {
+            "internalType": "string",
+            "name": "question",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "resolutionCriteria",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "metadataURI",
+            "type": "string"
+          },
+          {
+            "internalType": "bool",
+            "name": "resolved",
+            "type": "bool"
+          },
+          {
+            "internalType": "enum Outcome",
+            "name": "result",
+            "type": "uint8"
+          },
           {
             "components": [
-              { "internalType": "uint8", "name": "category", "type": "uint8" },
-              { "internalType": "uint16", "name": "confidence", "type": "uint16" },
-              { "internalType": "uint8", "name": "action", "type": "uint8" },
-              { "internalType": "string", "name": "reasoning", "type": "string" },
-              { "internalType": "string", "name": "evaluationSummary", "type": "string" },
-              { "internalType": "uint16", "name": "sourcesConsulted", "type": "uint16" },
-              { "internalType": "string", "name": "resolvedAt", "type": "string" }
+              {
+                "internalType": "uint8",
+                "name": "category",
+                "type": "uint8"
+              },
+              {
+                "internalType": "uint8",
+                "name": "action",
+                "type": "uint8"
+              },
+              {
+                "internalType": "uint256",
+                "name": "sourcesConsulted",
+                "type": "uint256"
+              },
+              {
+                "internalType": "string",
+                "name": "resolvedAt",
+                "type": "string"
+              },
+              {
+                "internalType": "uint256",
+                "name": "confidence",
+                "type": "uint256"
+              },
+              {
+                "internalType": "string",
+                "name": "reasoning",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "evaluationSummary",
+                "type": "string"
+              }
             ],
-            "internalType": "struct PredictionMarket.ResolutionData",
+            "internalType": "struct Resolution",
             "name": "resolution",
             "type": "tuple"
           }
@@ -83,31 +325,107 @@
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "string", "name": "_marketId", "type": "string" }],
-    "name": "getResolution",
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "name": "marketExists",
     "outputs": [
       {
-        "components": [
-          { "internalType": "uint8", "name": "category", "type": "uint8" },
-          { "internalType": "uint16", "name": "confidence", "type": "uint16" },
-          { "internalType": "uint8", "name": "action", "type": "uint8" },
-          { "internalType": "string", "name": "reasoning", "type": "string" },
-          { "internalType": "string", "name": "evaluationSummary", "type": "string" },
-          { "internalType": "uint16", "name": "sourcesConsulted", "type": "uint16" },
-          { "internalType": "string", "name": "resolvedAt", "type": "string" }
-        ],
-        "internalType": "struct PredictionMarket.ResolutionData",
+        "internalType": "bool",
         "name": "",
-        "type": "tuple"
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "string", "name": "", "type": "string" }],
-    "name": "marketExists",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "name": "markets",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "question",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "resolutionCriteria",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "metadataURI",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "resolved",
+        "type": "bool"
+      },
+      {
+        "internalType": "enum Outcome",
+        "name": "result",
+        "type": "uint8"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint8",
+            "name": "category",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "sourcesConsulted",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "resolvedAt",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "confidence",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "reasoning",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "evaluationSummary",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct Resolution",
+        "name": "resolution",
+        "type": "tuple"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   }

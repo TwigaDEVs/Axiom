@@ -31,6 +31,13 @@ export default function MarketDetail({ getReadContract, address }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 1. Don't attempt to load if we don't have an ID yet
+    if (!decodedId) {
+      setLoading(false);
+      setError("Invalid Market ID");
+      return;
+    }
+
     loadMarket();
   }, [decodedId]);
 
@@ -43,15 +50,38 @@ export default function MarketDetail({ getReadContract, address }: Props) {
         setError("No provider available. Connect your wallet.");
         return;
       }
+
+      console.log("1. Querying Market ID:", decodedId);
+      console.log("2. Contract Address:", await contract.getAddress());
+      const network = await contract.runner?.provider?.getNetwork();
+      console.log("3. Read Network Chain ID:", network?.chainId);
+
+      // 2. The actual contract call
       const data: MarketData = await contract.getMarket(decodedId);
-      if (!data.question) {
-        setError("Market not found");
+
+      if (!data || !data.question) {
+        setError(
+          "Market not found. If you just created this, it may take a few seconds to appear.",
+        );
         return;
       }
+
       setMarket(data);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load market");
+    } catch (err: any) {
+      console.error("Error loading market:", err);
+
+      // 3. Catch the specific 0x error caused by RPC lag
+      if (
+        err.message &&
+        err.message.includes("BAD_DATA") &&
+        err.message.includes("0x")
+      ) {
+        setError(
+          "Market is syncing to the blockchain. Please click Refresh in a few seconds.",
+        );
+      } else {
+        setError("Failed to load market data.");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,6 +101,15 @@ export default function MarketDetail({ getReadContract, address }: Props) {
       <div className="text-center py-16">
         <div className="text-5xl mb-4 opacity-30">⚠️</div>
         <h3 className="text-xl font-bold text-text-secondary mb-4">{error}</h3>
+        {/* If it's a sync error, showing a refresh button here is helpful too */}
+        {error.includes("syncing") ? (
+          <button
+            onClick={loadMarket}
+            className="px-5 py-2.5 bg-bg-elevated text-text-primary border border-border rounded-xl font-semibold text-sm hover:border-accent transition-all cursor-pointer mr-3"
+          >
+            ↻ Refresh Now
+          </button>
+        ) : null}
         <button
           onClick={() => navigate("/")}
           className="px-5 py-2.5 bg-bg-elevated text-text-primary border border-border rounded-xl font-semibold text-sm hover:border-accent transition-all cursor-pointer"
@@ -120,7 +159,10 @@ export default function MarketDetail({ getReadContract, address }: Props) {
                   ● {OUTCOME_LABELS[outcomeIdx]}
                 </span>
               ) : expired ? (
-                <Badge variant="yellow" className="!px-3.5 !py-1.5 !text-[13px]">
+                <Badge
+                  variant="yellow"
+                  className="!px-3.5 !py-1.5 !text-[13px]"
+                >
                   ⏰ Expired — Awaiting Resolution
                 </Badge>
               ) : (
@@ -143,7 +185,9 @@ export default function MarketDetail({ getReadContract, address }: Props) {
               </DetailRow>
               {market.metadataURI && (
                 <DetailRow label="Metadata URI">
-                  <span className="font-mono text-[12px] break-all">{market.metadataURI}</span>
+                  <span className="font-mono text-[12px] break-all">
+                    {market.metadataURI}
+                  </span>
                 </DetailRow>
               )}
             </div>
@@ -182,10 +226,14 @@ export default function MarketDetail({ getReadContract, address }: Props) {
                   </span>
                 </DetailRow>
                 <DetailRow label="Sources Consulted">
-                  <span className="font-mono">{Number(res.sourcesConsulted)}</span>
+                  <span className="font-mono">
+                    {Number(res.sourcesConsulted)}
+                  </span>
                 </DetailRow>
                 <DetailRow label="Resolved At">
-                  <span className="font-mono text-[12px]">{res.resolvedAt}</span>
+                  <span className="font-mono text-[12px]">
+                    {res.resolvedAt}
+                  </span>
                 </DetailRow>
               </div>
 
@@ -239,13 +287,20 @@ export default function MarketDetail({ getReadContract, address }: Props) {
             </p>
             <p
               className="text-3xl font-extrabold tracking-tight"
-              style={{ color: resolved ? OUTCOME_COLORS[outcomeIdx] : "#f59e0b" }}
+              style={{
+                color: resolved ? OUTCOME_COLORS[outcomeIdx] : "#f59e0b",
+              }}
             >
-              {resolved ? OUTCOME_LABELS[outcomeIdx] : expired ? "Pending" : "Active"}
+              {resolved
+                ? OUTCOME_LABELS[outcomeIdx]
+                : expired
+                  ? "Pending"
+                  : "Active"}
             </p>
             {resolved && confidence > 0 && (
               <p className="text-sm mt-2 opacity-70">
-                {formatConfidence(confidence)} confidence · {ACTION_LABELS[actionIdx]}
+                {formatConfidence(confidence)} confidence ·{" "}
+                {ACTION_LABELS[actionIdx]}
               </p>
             )}
           </div>
@@ -266,7 +321,7 @@ export default function MarketDetail({ getReadContract, address }: Props) {
                 onClick={() =>
                   toast.success(
                     "Resolution request sent. The oracle will process this market.",
-                    { duration: 4000 }
+                    { duration: 4000 },
                   )
                 }
                 className="w-full py-2.5 bg-accent text-white rounded-xl font-semibold text-sm hover:bg-accent-hover hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all cursor-pointer"
