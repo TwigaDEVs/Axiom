@@ -23,11 +23,48 @@ export default function MarketsList({ getReadContract, provider }: Props) {
     loadMarkets();
   }, [provider]);
 
+  // const loadMarkets = async () => {
+  //   setLoading(true);
+  //   try {
+  //     const contract = getReadContract();
+  //     if (!contract) {
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     console.log("contract fileters", contract);
+
+  //     const createdFilter = contract.filters.MarketCreated();
+  //     const events = await contract.queryFilter(createdFilter, 0, "latest");
+  //     console.log("events ", events);
+
+  //     const loaded: MarketEntry[] = [];
+  //     for (const event of events) {
+  //       try {
+  //         const args = (event as any).args;
+  //         const marketId: string = args[0];
+  //         const data: MarketData = await contract.getMarket(marketId);
+  //         if (data.question) {
+  //           loaded.push({ marketId, market: data });
+  //         }
+  //       } catch {
+  //         // skip
+  //       }
+  //     }
+
+  //     setMarkets(loaded.reverse());
+  //   } catch (err) {
+  //     console.error("Failed to load markets:", err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const loadMarkets = async () => {
     setLoading(true);
     try {
       const contract = getReadContract();
-      if (!contract) {
+      if (!contract || !provider) {
         setLoading(false);
         return;
       }
@@ -38,14 +75,31 @@ export default function MarketsList({ getReadContract, provider }: Props) {
       const loaded: MarketEntry[] = [];
       for (const event of events) {
         try {
-          const args = (event as any).args;
-          const marketId: string = args[0];
-          const data: MarketData = await contract.getMarket(marketId);
+          // 1. Grab the transaction hash from the event
+          const txHash = event.transactionHash;
+
+          // 2. Fetch the full transaction data from the blockchain
+          const tx = await provider.getTransaction(txHash);
+          if (!tx) continue;
+
+          // 3. Decode the original inputs you sent to the `createMarket` function!
+          // This allows us to bypass the 'Indexed' event hash and get the REAL string.
+          const decodedInputs = contract.interface.decodeFunctionData(
+            "createMarket",
+            tx.data,
+          );
+
+          // The first argument in your createMarket function is _marketId
+          const actualMarketId: string = decodedInputs[0];
+
+          // 4. Now we call getMarket with the CORRECT string ID!
+          const data: MarketData = await contract.getMarket(actualMarketId);
+
           if (data.question) {
-            loaded.push({ marketId, market: data });
+            loaded.push({ marketId: actualMarketId, market: data });
           }
-        } catch {
-          // skip
+        } catch (err) {
+          console.error("Skipped an event due to error:", err);
         }
       }
 
